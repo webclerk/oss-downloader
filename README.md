@@ -4,9 +4,10 @@ As well know that Ali OSS have no tool to download the whole bucket files, so I 
 
 This tool has the following advantages:
 
-1. it will save the file info to database, so you can use it to check the file info
-2. it will check the file md5, so you can use it to check the file integrity
-3. it can handle the network breakdown issue, you can continue to download the file from the break point
+1. it will save the file info to database, so you can use it to check the file info.
+2. it will check the file md5, so you can use it to check the file integrity.
+3. it can handle the network breakdown issue, you can continue to download the file from the break point.
+4. it can using ProcessPoolExecutor to speed up download.
 
 
 ## usage command
@@ -38,7 +39,3 @@ BUCKET_NAME=""
 DB_FILE_NAME=""
 FILE_SAVE_PATH=""
 ```
-
-## todo
-
-- need add ProcessPoolExecutor to speed up the download

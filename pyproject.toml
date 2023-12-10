@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "oss-downloader"
-version = "0.1.0"
+version = "0.1.1"
 description = ""
 authors = ["webclerk <webclerk@gmail.com>"]
 readme = "README.md"

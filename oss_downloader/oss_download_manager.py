@@ -1,5 +1,6 @@
 import hashlib
 import os
+from concurrent.futures import ProcessPoolExecutor
 from os.path import abspath, join
 from typing import List
 
@@ -54,10 +55,19 @@ class OssDownloadManager:
             # truncated = False
         logger.debug(f"total {obj_count} files")
 
+    def __init_file_save_path(self):
+        """init file save path"""
+        file_save_path = os.environ.get('FILE_SAVE_PATH', "./oss-data")
+        file_save_dir = abspath(file_save_path)
+        if not os.path.exists(file_save_dir):
+            os.makedirs(file_save_dir)
+        self.file_save_dir = file_save_dir
+
     def init_db(self):
         """init db and load bucket file info"""
         self.db_helper.clear_all_data()
         self._load_bucket_file_info()
+        self.__init_file_save_path()
 
     @staticmethod
     def __calculate_file_md5(file_path: str) -> str:
@@ -69,34 +79,41 @@ class OssDownloadManager:
         return str(md5_hash.hexdigest()).lower()
 
     @staticmethod
-    def __split_work_list(lst: List, size: int = 10) -> List:
+    def __split_work_list(lst: List, size: int) -> List:
         """split list to sub list"""
         return [lst[i:i + size] for i in range(0, len(lst), size)]
 
     def process_download(self) -> int:
         """process downloaded file"""
+        process_max_count = 1000
         processed_count = 0
-        file_save_path = os.environ.get('FILE_SAVE_PATH', "./oss-data")
-        file_save_dir = abspath(file_save_path)
-        if not os.path.exists(file_save_dir):
-            os.makedirs(file_save_dir)
-        need_process_file_list = self.db_helper.get_unprocessed_file_info_list(limit=10)
+        need_process_file_list = self.db_helper.get_unprocessed_file_info_list(limit=process_max_count)
         while len(need_process_file_list) > 0:
-            processed_original_name_list = []
-            processed_file_md5 = []
-            for need_process_file in need_process_file_list:
-                saved_file_name = join(file_save_dir, need_process_file['shorter_name'])
-                self.bucket.get_object_to_file(
-                    key=need_process_file['original_name'],
-                    filename=saved_file_name)
-                file_md5 = OssDownloadManager.__calculate_file_md5(file_path=str(saved_file_name))
-                processed_original_name_list.append(need_process_file['original_name'])
-                processed_file_md5.append(file_md5)
-                logger.debug(f"downloaded file {need_process_file['original_name']} with md5 {file_md5}")
-            self.db_helper.batch_update_processed_result(
-                original_name_list=processed_original_name_list,
-                file_md5_list=processed_file_md5)
-            processed_count = processed_count + len(need_process_file_list)
-            logger.debug(f"processed {processed_count} files")
+            sub_list = OssDownloadManager.__split_work_list(need_process_file_list,
+                                                            size=int(process_max_count / 20))
+            with ProcessPoolExecutor() as executor:
+                # using mapp to process
+                map_result_list = executor.map(self.__download_file, sub_list)
+                for map_result in map_result_list:
+                    self.db_helper.batch_update_processed_result(
+                        original_name_list=map_result["original_name_list"],
+                        file_md5_list=map_result["file_md5_list"])
+                    processed_count = processed_count + len(need_process_file_list)
+                    logger.debug(f"processed {processed_count} files")
             need_process_file_list = self.db_helper.get_unprocessed_file_info_list()
         return processed_count
+
+    def __download_file(self, need_process_file_list: List):
+        processed_original_name_list = []
+        processed_file_md5 = []
+        for need_process_file in need_process_file_list:
+            saved_file_name = join(self.file_save_dir, need_process_file['shorter_name'])
+            self.bucket.get_object_to_file(
+                key=need_process_file['original_name'],
+                filename=saved_file_name)
+            file_md5 = OssDownloadManager.__calculate_file_md5(file_path=str(saved_file_name))
+            processed_original_name_list.append(need_process_file['original_name'])
+            processed_file_md5.append(file_md5)
+            logger.debug(f"downloaded file {need_process_file['original_name']} with md5 {file_md5}")
+        return {"original_name_list": processed_original_name_list,
+                "file_md5_list": processed_file_md5}

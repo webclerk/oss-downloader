@@ -74,7 +74,8 @@ class DBHelper:
                         row_dict[column[0]] = row[index]
                 result.append(row_dict)
         return result
-    def get_unprocessed_file_info_list(self,limit:int=1000) -> List[dict]:
+
+    def get_unprocessed_file_info_list(self, limit: int = 1000) -> List[dict]:
         """get unprocessed file info list"""
         with self.engine.connect() as connection:
             # get unprocessed file info list
