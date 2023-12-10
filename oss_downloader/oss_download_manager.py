@@ -1,6 +1,7 @@
 import hashlib
 import os
-from os.path import abspath, dirname, join
+from os.path import abspath, join
+from typing import List
 
 import oss2
 from dotenv import load_dotenv
@@ -66,6 +67,11 @@ class OssDownloadManager:
             for chunk in iter(lambda: file.read(4096), b''):
                 md5_hash.update(chunk)
         return str(md5_hash.hexdigest()).lower()
+
+    @staticmethod
+    def __split_work_list(lst: List, size: int = 10) -> List:
+        """split list to sub list"""
+        return [lst[i:i + size] for i in range(0, len(lst), size)]
 
     def process_download(self) -> int:
         """process downloaded file"""
