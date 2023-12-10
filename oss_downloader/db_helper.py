@@ -1,3 +1,5 @@
+from typing import List
+import uuid_utils as uuid
 import sqlalchemy as db
 from datetime import datetime
 
@@ -12,7 +14,8 @@ class DBHelper:
 
         # 创建file_info表
         self.file_info = db.Table('file_info', self.metadata,
-                                  db.Column('original_name', db.String(length=4096), nullable=False),
+                                  db.Column('original_name',
+                                            db.String(length=4096), nullable=False, index=True),
                                   db.Column('shorter_name', db.String(length=255), nullable=False),
                                   db.Column('created_on', db.DateTime, nullable=False),
                                   db.Column('processed_on', db.DateTime)
@@ -22,6 +25,22 @@ class DBHelper:
         with self.engine.connect() as connection:
             # 创建表
             self.metadata.create_all(connection)
+
+    def insert_file_info_list(self, original_name_list: List[str]) -> None:
+        def __get_file_extension(file_name: str) -> str:
+            if '.' in file_name:
+                return "." + file_name.split('.')[-1]
+            else:
+                return ""
+
+        with self.engine.connect() as connection:
+            # 插入数据
+            for original_name in original_name_list:
+                shorter_name = str(uuid.uuid7()) + __get_file_extension(file_name=original_name)
+                insert_statement = self.file_info.insert().values(
+                    original_name=original_name, shorter_name=shorter_name, created_on=datetime.now())
+                connection.execute(insert_statement)
+            connection.commit()
 
     def insert_file_info(self, original_name: str, shorter_name: str) -> None:
         with self.engine.connect() as connection:
