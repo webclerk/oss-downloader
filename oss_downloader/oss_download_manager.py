@@ -1,6 +1,5 @@
 import hashlib
 import os
-from concurrent.futures import ProcessPoolExecutor
 from os.path import abspath, join
 from typing import List
 
@@ -32,6 +31,7 @@ class OssDownloadManager:
         load_dotenv()
         self.db_helper = DBHelper()
         self.bucket = OssDownloadManager._prepare_oss_bucket()
+        self.__init_file_save_path()
 
     def _load_bucket_file_info(self) -> None:
         """save bucket file info to db"""
@@ -59,6 +59,7 @@ class OssDownloadManager:
         """init file save path"""
         file_save_path = os.environ.get('FILE_SAVE_PATH', "./oss-data")
         file_save_dir = abspath(file_save_path)
+        logger.debug(f"file save path: {file_save_dir}")
         if not os.path.exists(file_save_dir):
             os.makedirs(file_save_dir)
         self.file_save_dir = file_save_dir
@@ -67,7 +68,6 @@ class OssDownloadManager:
         """init db and load bucket file info"""
         self.db_helper.clear_all_data()
         self._load_bucket_file_info()
-        self.__init_file_save_path()
 
     @staticmethod
     def __calculate_file_md5(file_path: str) -> str:
@@ -85,21 +85,22 @@ class OssDownloadManager:
 
     def process_download(self) -> int:
         """process downloaded file"""
-        process_max_count = 1000
+        process_max_count = 50
         processed_count = 0
         need_process_file_list = self.db_helper.get_unprocessed_file_info_list(limit=process_max_count)
         while len(need_process_file_list) > 0:
-            sub_list = OssDownloadManager.__split_work_list(need_process_file_list,
-                                                            size=int(process_max_count / 20))
-            with ProcessPoolExecutor() as executor:
-                # using mapp to process
-                map_result_list = executor.map(self.__download_file, sub_list)
-                for map_result in map_result_list:
-                    self.db_helper.batch_update_processed_result(
-                        original_name_list=map_result["original_name_list"],
-                        file_md5_list=map_result["file_md5_list"])
-                    processed_count = processed_count + len(need_process_file_list)
-                    logger.debug(f"processed {processed_count} files")
+            # sub_list = OssDownloadManager.__split_work_list(need_process_file_list,
+            #                                                size=int(process_max_count / 20))
+            # with ProcessPoolExecutor() as executor:
+            # using mapp to process
+            # map_result_list = executor.map(self.__download_file, sub_list)
+            # for map_result in map_result_list:
+            process_result = self.__download_file(need_process_file_list=need_process_file_list)
+            self.db_helper.batch_update_processed_result(
+                original_name_list=process_result["original_name_list"],
+                file_md5_list=process_result["file_md5_list"])
+            processed_count = processed_count + len(need_process_file_list)
+            logger.debug(f"processed {processed_count} files")
             need_process_file_list = self.db_helper.get_unprocessed_file_info_list()
         return processed_count
 
@@ -114,6 +115,6 @@ class OssDownloadManager:
             file_md5 = OssDownloadManager.__calculate_file_md5(file_path=str(saved_file_name))
             processed_original_name_list.append(need_process_file['original_name'])
             processed_file_md5.append(file_md5)
-            logger.debug(f"downloaded file {need_process_file['original_name']} with md5 {file_md5}")
+            logger.debug(f"downloaded [{need_process_file['original_name']}] to [{saved_file_name}], md5: {file_md5}")
         return {"original_name_list": processed_original_name_list,
                 "file_md5_list": processed_file_md5}
