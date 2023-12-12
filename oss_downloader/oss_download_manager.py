@@ -104,7 +104,7 @@ class OssDownloadManager:
             need_process_file_list = self.db_helper.get_unprocessed_file_info_list()
         return processed_count
 
-    @retry(stop=stop_after_attempt(10) | stop_after_delay(5))
+    @retry(stop=stop_after_attempt(10))
     def __download_file(self, need_process_file_list: List):
         processed_original_name_list = []
         processed_file_md5 = []
