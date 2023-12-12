@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "oss-downloader"
-version = "0.1.1"
+version = "0.1.2"
 description = ""
 authors = ["webclerk <webclerk@gmail.com>"]
 readme = "README.md"
@@ -13,6 +13,7 @@ python-dotenv = "^1.0.0"
 loguru = "^0.7.2"
 click = "^8.1.7"
 uuid-utils = "^0.6.1"
+tenacity = "^8.2.3"
 
 
 [tool.poetry.group.dev.dependencies]

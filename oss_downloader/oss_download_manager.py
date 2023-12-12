@@ -6,6 +6,7 @@ from typing import List
 import oss2
 from dotenv import load_dotenv
 from loguru import logger
+from tenacity import retry, stop_after_attempt, stop_after_delay
 
 from db_helper import DBHelper
 
@@ -81,7 +82,6 @@ class OssDownloadManager:
     @staticmethod
     def __split_work_list(lst: List, size: int) -> List:
         """split list to sub list"""
-        return [lst[i:i + size] for i in range(0, len(lst), size)]
 
     def process_download(self) -> int:
         """process downloaded file"""
@@ -104,6 +104,7 @@ class OssDownloadManager:
             need_process_file_list = self.db_helper.get_unprocessed_file_info_list()
         return processed_count
 
+    @retry(stop=stop_after_attempt(10) | stop_after_delay(5))
     def __download_file(self, need_process_file_list: List):
         processed_original_name_list = []
         processed_file_md5 = []

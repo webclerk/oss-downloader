@@ -7,7 +7,7 @@ This tool has the following advantages:
 1. [x] it will save the file info to database, so you can use it to check the file info.
 2. [x] it will check the file md5, so you can use it to check the file integrity.
 3. [x] it can handle the network breakdown issue, you can continue to download the file from the break point.
-4. [ ] it can using ProcessPoolExecutor to speed up download.
+4. [x] add retry for oss network exception
 
 
 ## usage command
